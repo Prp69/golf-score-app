@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Golf Score</string>
+    <string name="title_activity_main">Golf Score</string>
+    <string name="package_name">com.thibaud.golfscore</string>
+    <string name="custom_url_scheme">com.thibaud.golfscore</string>
+</resources>

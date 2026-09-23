@@ -1,0 +1,12 @@
+{
+  "appId": "com.thibaud.golfscore",
+  "appName": "Golf Score",
+  "webDir": "dist",
+  "backgroundColor": "#f4f5f3",
+  "ios": {
+    "contentInset": "always"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
