@@ -1,0 +1,62 @@
+name: Build iOS IPA (unsigned, for AltStore)
+
+# Compile un .ipa NON signé sur un runner macOS GitHub (gratuit).
+# AltStore / AltStore PAL / SideStore signera ensuite l'app avec votre compte Apple
+# au moment de l'installation sur l'iPhone. Aucun Mac requis de votre côté.
+
+on:
+  workflow_dispatch: {}   # lancement manuel depuis l'onglet Actions
+  push:
+    tags:
+      - "v*"              # ou automatiquement en poussant un tag vX.Y.Z
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install JS deps
+        run: npm ci || npm install
+
+      - name: Build web + add/sync iOS
+        run: |
+          npm run build
+          npx cap add ios || true
+          npx cap sync ios
+
+      - name: Archive (unsigned)
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$PWD/build/App.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Package unsigned .ipa
+        working-directory: ios/App
+        run: |
+          mkdir -p build/Payload
+          cp -R "build/App.xcarchive/Products/Applications/App.app" "build/Payload/App.app"
+          cd build
+          zip -r GolfScore-unsigned.ipa Payload
+          ls -la
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GolfScore-unsigned-ipa
+          path: ios/App/build/GolfScore-unsigned.ipa
+          if-no-files-found: error
