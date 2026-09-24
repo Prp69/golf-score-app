@@ -374,7 +374,7 @@ export default function App() {
       )}
       <main style={{ padding: 16, paddingBottom: showTabs ? 90 : 40 }}>
         {!loaded && <p style={{ color: C.sub }}>Chargement…</p>}
-        {loaded && screen === "home" && <Home rounds={rounds} onNew={() => setScreen("setup")} onOpen={(r) => { setCurrent(r); setScreen(r.finished ? "results" : "play"); }} onDelete={deleteRound} onData={() => setScreen("data")} backupNeeded={backupNeeded} onBackupDone={markBackupDone} />}
+        {loaded && screen === "home" && <Home rounds={rounds} onNew={() => setScreen("setup")} onOpen={(r) => { setCurrent(r); const done = r.players.every(p => p.scores.every(s => s !== "" && s != null)); setScreen(done ? "results" : "play"); }} onDelete={deleteRound} onData={() => setScreen("data")} backupNeeded={backupNeeded} onBackupDone={markBackupDone} />}
         {loaded && screen === "setup" && <Setup savedCourses={savedCourses} roster={roster} onSaveRoster={saveRoster} onCancel={() => setScreen("home")} onStart={(r) => { setCurrent(r); persistRound(r); setScreen("play"); }} />}
         {loaded && screen === "play" && current && <Play round={current} onUpdate={(r) => { setCurrent(r); persistRound(r); }} onFinish={(r) => { const f = { ...r, finished: true }; setCurrent(f); persistRound(f); setScreen("results"); }} onBack={() => setScreen("home")} />}
         {loaded && screen === "results" && current && <Results round={current} onBack={() => setScreen("home")} onEdit={() => setScreen("play")} backupNeeded={backupNeeded} onBackupDone={markBackupDone} />}
@@ -797,13 +797,55 @@ function Play({ round, onUpdate, onFinish, onBack }) {
       });
       })()}
 
-      <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+      <LiveStandings round={round} />
+
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
         <button onClick={() => setHole(Math.max(0, hole - 1))} disabled={hole === 0}
           style={{ flex: 1, padding: 14, borderRadius: 16, border: `1px solid ${C.border}`, background: hole === 0 ? "#f0f0ee" : "#fff", color: hole === 0 ? "#bbb" : C.text, fontSize: 15, fontWeight: 700, cursor: hole === 0 ? "default" : "pointer" }}>← Trou {hole}</button>
         {hole < nbHoles - 1
           ? <button onClick={() => setHole(hole + 1)} style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.green, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Suivant · Trou {hole + 2} →</button>
           : <button onClick={() => onFinish(round)} style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.green, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Voir le classement →</button>}
       </div>
+    </div>
+  );
+}
+
+// Mini-classement live affiché sous la saisie, une ligne par formule sélectionnée
+function LiveStandings({ round }) {
+  const formats = roundFormats(round);
+  const [openF, setOpenF] = useState(formats[0]);
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, marginBottom: 10 }}>Classement en direct</div>
+      {formats.length > 1 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {formats.map(f => {
+            const on = openF === f;
+            return <button key={f} onClick={() => setOpenF(f)} style={{ padding: "6px 12px", borderRadius: 18, fontSize: 12, fontWeight: on ? 700 : 500, border: on ? "none" : `1px solid ${C.border}`, background: on ? C.green : "#fff", color: on ? "#fff" : C.text, cursor: "pointer" }}>{fmtLabel(f)}</button>;
+          })}
+        </div>
+      )}
+      {(() => {
+        const { sorted, metric } = computeFormat(round, openF);
+        return (
+          <div style={{ background: "#fff", borderRadius: 16, padding: "6px 12px 10px", boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+            {formats.length === 1 && <div style={{ fontSize: 12, color: C.sub, padding: "8px 2px 4px", fontWeight: 700 }}>{fmtLabel(openF)}</div>}
+            {sorted.map((r, i) => {
+              const first = i === 0;
+              const pi = round.players.findIndex(x => x.id === r.id);
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: i < sorted.length - 1 ? `1px solid ${C.line}` : "none" }}>
+                  <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 15, width: 18, textAlign: "center", color: first ? C.green : C.sub }}>{i + 1}</span>
+                  <Avatar name={r.name} i={pi < 0 ? i : pi} size={28} />
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.ink }}>{r.name}</span>
+                  <span style={{ fontSize: 11, color: C.sub }}>{r.played}/{round.holes.length}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: first ? C.green : C.ink, minWidth: 54, textAlign: "right" }}>{metric(r)}</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }
