@@ -231,21 +231,28 @@ function chouettePoints(scores) {
 }
 
 const C = {
-  green: "#1a4d2e", greenLight: "#2d6a4f", accent: "#40916c",
-  cream: "#f4f5f3", border: "#e3e6e1", text: "#111", sub: "#8a908c", gold: "#c9a227",
-  ink: "#111", line: "#ececec",
+  green: "#2f5e3f", greenDark: "#264d33", greenLight: "#e2ebe2", accent: "#2f5e3f",
+  cream: "#f3f3f1", border: "#dcdcd6", text: "#1c1c1a", sub: "#6b6f6b", gold: "#a8551f",
+  ink: "#1c1c1a", line: "#e2e2dd", rust: "#a8551f",
 };
+const SERIF = 'Georgia, "Times New Roman", "Playfair Display", serif';
+// Couleurs de pastille joueur (initiale sur rond coloré), façon Card & Pencil
+const PLAYER_COLORS = ["#3d6b4a", "#b5622f", "#2f4a7a", "#6b4a8a", "#4a7a5a", "#8a6b2f", "#7a2f4a", "#2f6b6b"];
+function playerColor(i) { return PLAYER_COLORS[i % PLAYER_COLORS.length]; }
+function Avatar({ name, i, size = 40 }) {
+  const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
+  return <span style={{ width: size, height: size, borderRadius: "50%", background: playerColor(i), color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.4, flexShrink: 0 }}>{initial}</span>;
+}
 
 // Marqueur de score façon PGA : cercle = sous le par, carré = au-dessus.
-// diff = score - par. 0 = par (aucune forme).
 function ScoreMark({ value, par, size = 34 }) {
   if (value === "" || value == null) return <span style={{ fontSize: 15, color: C.sub }}>·</span>;
   const diff = value - par;
   const num = <span style={{ fontSize: 15, fontWeight: 600, color: C.ink, lineHeight: 1 }}>{value}</span>;
   if (diff === 0) return <span style={{ display: "inline-flex", width: size, height: size, alignItems: "center", justifyContent: "center" }}>{num}</span>;
-  const shape = diff < 0 ? "50%" : "6px"; // cercle sous par / carré au-dessus
+  const shape = diff < 0 ? "50%" : "6px";
   const doubled = Math.abs(diff) >= 2;
-  const color = diff < 0 ? C.ink : C.ink;
+  const color = C.ink;
   const outer = { display: "inline-flex", width: size, height: size, alignItems: "center", justifyContent: "center", borderRadius: shape, border: `1.5px solid ${color}`, boxShadow: doubled ? `0 0 0 2.5px #fff, 0 0 0 4px ${color}` : "none", boxSizing: "border-box" };
   return <span style={outer}>{num}</span>;
 }
@@ -354,31 +361,20 @@ export default function App() {
   async function saveCourses(list) { setSavedCourses(list); await store.set("courses", list); await bumpDataRev(); await refreshBackupFlag(); }
   async function saveRoster(list) { setRoster(list); await store.set("players:roster", list); await bumpDataRev(); await refreshBackupFlag(); }
 
+  const tab = (screen === "home" || screen === "setup" || screen === "results" || screen === "play") ? "home"
+    : screen === "courses" ? "courses" : screen === "players" ? "players" : screen === "data" ? "settings" : "home";
+  const showTabs = screen !== "play"; // pas d'onglets pendant la saisie (barre de trous à la place)
+
   return (
-    <div style={{ fontFamily: "-apple-system, system-ui, sans-serif", background: C.cream, minHeight: "100vh", color: C.text, maxWidth: 480, margin: "0 auto" }}>
-      <header style={{ background: C.green, color: "#fff", padding: "16px 18px", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 22 }}>⛳</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 18, letterSpacing: .3 }}>Golf Score</div>
-            <div style={{ fontSize: 11, opacity: .8 }}>Handicap · Stableford · Stroke Play</div>
-          </div>
-          {loaded && (
-            <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 600, padding: "3px 8px", borderRadius: 8,
-              background: storeMode === "memory" ? "#c8102e" : "rgba(255,255,255,.2)", color: "#fff" }}>
-              {storeMode === "cloud" ? "☁ Sauvegardé" : storeMode === "local" ? "💾 Local" : storeMode === "memory" ? "⚠ Non sauvegardé" : "…"}
-            </span>
-          )}
+    <div style={{ fontFamily: "-apple-system, system-ui, sans-serif", background: C.cream, minHeight: "100vh", color: C.text, maxWidth: 480, margin: "0 auto", paddingTop: "env(safe-area-inset-top)" }}>
+      {loaded && storeMode === "memory" && (
+        <div style={{ fontSize: 11, background: "#fdecec", color: C.rust, padding: "8px 16px", lineHeight: 1.3 }}>
+          Stockage persistant indisponible : pensez à exporter vos données régulièrement.
         </div>
-        {loaded && storeMode === "memory" && (
-          <div style={{ fontSize: 10, marginTop: 6, background: "#fff", color: "#c8102e", borderRadius: 6, padding: "5px 8px", lineHeight: 1.3 }}>
-            Le stockage persistant n'est pas disponible ici : les parties ne seront gardées que le temps de la session. Essayez d'ouvrir l'artefact en plein écran, ou depuis un autre navigateur.
-          </div>
-        )}
-      </header>
-      <main style={{ padding: 16, paddingBottom: 40 }}>
+      )}
+      <main style={{ padding: 16, paddingBottom: showTabs ? 90 : 40 }}>
         {!loaded && <p style={{ color: C.sub }}>Chargement…</p>}
-        {loaded && screen === "home" && <Home rounds={rounds} onNew={() => setScreen("setup")} onOpen={(r) => { setCurrent(r); setScreen(r.finished ? "results" : "play"); }} onDelete={deleteRound} onCourses={() => setScreen("courses")} onPlayers={() => setScreen("players")} onData={() => setScreen("data")} backupNeeded={backupNeeded} onBackupDone={markBackupDone} />}
+        {loaded && screen === "home" && <Home rounds={rounds} onNew={() => setScreen("setup")} onOpen={(r) => { setCurrent(r); setScreen(r.finished ? "results" : "play"); }} onDelete={deleteRound} onData={() => setScreen("data")} backupNeeded={backupNeeded} onBackupDone={markBackupDone} />}
         {loaded && screen === "setup" && <Setup savedCourses={savedCourses} roster={roster} onSaveRoster={saveRoster} onCancel={() => setScreen("home")} onStart={(r) => { setCurrent(r); persistRound(r); setScreen("play"); }} />}
         {loaded && screen === "play" && current && <Play round={current} onUpdate={(r) => { setCurrent(r); persistRound(r); }} onFinish={(r) => { const f = { ...r, finished: true }; setCurrent(f); persistRound(f); setScreen("results"); }} onBack={() => setScreen("home")} />}
         {loaded && screen === "results" && current && <Results round={current} onBack={() => setScreen("home")} onEdit={() => setScreen("play")} backupNeeded={backupNeeded} onBackupDone={markBackupDone} />}
@@ -386,29 +382,83 @@ export default function App() {
         {loaded && screen === "players" && <Players roster={roster} onSave={saveRoster} onBack={() => setScreen("home")} />}
         {loaded && screen === "data" && <DataScreen onReload={reloadAll} onBack={() => setScreen("home")} />}
       </main>
+      {loaded && showTabs && <TabBar active={tab} onNav={(t) => setScreen(t === "settings" ? "data" : t)} />}
     </div>
   );
 }
 
-function Home({ rounds, onNew, onOpen, onDelete, onCourses, onPlayers, onData, backupNeeded, onBackupDone }) {
+function TabBar({ active, onNav }) {
+  const items = [
+    ["home", "Accueil", "⌂"],
+    ["courses", "Parcours", "⛳"],
+    ["players", "Joueurs", "◐"],
+    ["settings", "Réglages", "⚙"],
+  ];
+  return (
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "#fff", borderTop: `1px solid ${C.border}` }}>
+      <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", padding: "8px 0 calc(6px + env(safe-area-inset-bottom))" }}>
+        {items.map(([key, label, icon]) => {
+          const on = active === key;
+          return (
+            <button key={key} onClick={() => onNav(key)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: on ? C.green : C.sub }}>
+              <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+              <span style={{ fontSize: 11, fontWeight: on ? 700 : 500 }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Home({ rounds, onNew, onOpen, onDelete, onData, backupNeeded, onBackupDone }) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
   return (
     <div>
-      {backupNeeded && <BackupBanner onCopied={onBackupDone} />}
-      <button onClick={onNew} style={btn(C.green)}>+ Nouvelle partie</button>
-      <button onClick={onCourses} style={btn("#fff", C.green, true)}>🏌 Gérer mes parcours</button>
-      <button onClick={onPlayers} style={btn("#fff", C.green, true)}>👤 Gérer mes joueurs</button>
-      <button onClick={onData} style={btn("#fff", C.green, true)}>💾 Sauvegarde / Restauration</button>
-      <h3 style={h3()}>Parties enregistrées</h3>
-      {rounds.length === 0 && <p style={{ color: C.sub, fontSize: 14 }}>Aucune partie pour l'instant.</p>}
-      {rounds.map((r) => (
-        <div key={r.id} style={card()}>
-          <div onClick={() => onOpen(r)} style={{ flex: 1, cursor: "pointer" }}>
-            <div style={{ fontWeight: 600 }}>{r.courseName} {r.finished ? "✓" : "· en cours"}</div>
-            <div style={{ fontSize: 12, color: C.sub }}>{new Date(r.createdAt).toLocaleDateString("fr-FR")} · {r.players.length} joueur(s) · {roundFormats(r).map(fmtLabel).join(", ")}</div>
-          </div>
-          <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: "#b23", fontSize: 18, cursor: "pointer" }}>🗑</button>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 14, color: C.sub }}>{greeting}</div>
+          <div style={{ fontFamily: SERIF, fontSize: 34, fontWeight: 700, letterSpacing: -.5, lineHeight: 1.05 }}>Golf Score</div>
         </div>
-      ))}
+        <span style={{ width: 38, height: 38, borderRadius: "50%", background: C.green, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>⛳</span>
+      </div>
+
+      {backupNeeded && <div style={{ marginBottom: 14 }}><BackupBanner onCopied={onBackupDone} /></div>}
+
+      <div style={{ background: C.green, color: "#fff", borderRadius: 20, padding: 22, marginBottom: 16 }}>
+        <div style={{ fontSize: 22, marginBottom: 10 }}>⚑</div>
+        <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, marginBottom: 6 }}>Nouvelle partie</div>
+        <div style={{ fontSize: 14, opacity: .9, marginBottom: 16, lineHeight: 1.4 }}>Choisissez un parcours, ajoutez vos joueurs, scorez trou par trou.</div>
+        <button onClick={onNew} style={{ background: "#fff", color: C.green, border: "none", borderRadius: 24, padding: "12px 22px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Démarrer →</button>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 700 }}>Parties récentes</div>
+      </div>
+      {rounds.length === 0 && <p style={{ color: C.sub, fontSize: 14 }}>Aucune partie pour l'instant.</p>}
+      {rounds.map((r) => {
+        const nb = r.holes ? r.holes.length : 18;
+        let winner = null;
+        try {
+          const f = roundFormats(r)[0];
+          const cf = computeFormat(r, f);
+          winner = cf.sorted[0];
+        } catch (e) {}
+        return (
+          <div key={r.id} style={{ background: "#fff", borderRadius: 16, padding: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 12, boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+            <div onClick={() => onOpen(r)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, cursor: "pointer" }}>
+              <span style={{ width: 46, height: 46, borderRadius: 12, background: C.greenLight, color: C.green, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: SERIF, fontWeight: 700, fontSize: 18, flexShrink: 0 }}>{nb}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.courseName}</div>
+                <div style={{ fontSize: 12, color: C.sub }}>{new Date(r.createdAt).toLocaleDateString("fr-FR")} · {r.players.length} joueur(s){r.finished ? "" : " · en cours"}</div>
+                {winner && r.finished && <div style={{ fontSize: 12, color: C.rust, fontWeight: 700, marginTop: 2 }}>Gagnant : {winner.name}</div>}
+              </div>
+            </div>
+            <button onClick={() => onDelete(r.id)} style={{ background: "none", border: "none", color: C.sub, fontSize: 16, cursor: "pointer" }}>✕</button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -420,6 +470,7 @@ function Setup({ onStart, onCancel, savedCourses, roster, onSaveRoster }) {
   const [backLoop, setBackLoop] = useState("");
   const [players, setPlayers] = useState([{ name: "Joueur 1", hcp: "18", tee: "Jaune", sex: "M", mSlope: "", mSss: "" }]);
   const [allowance, setAllowance] = useState("100");
+  const [expandedRow, setExpandedRow] = useState(-1);
 
   // Parcours effectif : si club à boucles, on assemble aller+retour
   const loopNames = course.isLoops ? Object.keys(course.loops) : [];
@@ -489,46 +540,37 @@ function Setup({ onStart, onCancel, savedCourses, roster, onSaveRoster }) {
     onStart(round);
   }
 
+  const formatPills = [
+    ["stableford", "Stableford"],
+    ["strokeplay", "Stroke Play"],
+    ["matchplay", "Match Play"],
+    ["chouette_net", "Chouette"],
+    ["stableford_brut", "Stableford brut"],
+    ["strokeplay_brut", "Stroke brut"],
+    ["chouette_brut", "Chouette brut"],
+    ["scramble", "Scramble"],
+  ];
+
   return (
     <div>
-      <h3 style={h3()}>Formules de jeu (plusieurs possibles)</h3>
-      {[
-        ["stableford", "Stableford Net"],
-        ["stableford_brut", "Stableford Brut"],
-        ["strokeplay", "Stroke Play Net (medal)"],
-        ["strokeplay_brut", "Stroke Play Brut"],
-        ["matchplay", "Match Play (net, 2 joueurs)"],
-        ["scramble", "Scramble (équipe, brut)"],
-        ["chouette_net", "Chouette Net (3 joueurs)"],
-        ["chouette_brut", "Chouette Brut (3 joueurs)"],
-      ].map(([f, label]) => {
-        const on = formats.includes(f);
-        return (
-          <div key={f} onClick={() => toggleFormat(f)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 6, background: on ? "#eef3ec" : "#fff", border: `1.5px solid ${on ? C.green : C.border}`, borderRadius: 10, cursor: "pointer" }}>
-            <span style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${on ? C.green : C.sub}`, background: on ? C.green : "#fff", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{on ? "✓" : ""}</span>
-            <span style={{ fontSize: 14, fontWeight: on ? 600 : 400 }}>{label}</span>
-          </div>
-        );
-      })}
-      {(formats.includes("chouette_net") || formats.includes("chouette_brut")) && <p style={{ fontSize: 11, color: C.gold, marginTop: 2 }}>Chouette : exactement 3 joueurs.</p>}
-      {formats.includes("matchplay") && <p style={{ fontSize: 11, color: C.gold, marginTop: 2 }}>Match Play : exactement 2 joueurs.</p>}
+      <ScreenHeader title="Nouvelle partie" onBack={onCancel} />
 
-      <h3 style={h3()}>Parcours</h3>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Parcours</div>
       <select value={course.name} onChange={e => { const c = savedCourses.find(x => x.name === e.target.value); if (c) { setCourse(c); setFrontLoop(""); setBackLoop(""); } }} style={input()}>
         {(savedCourses.length ? savedCourses : [course]).map((c, i) => <option key={i} value={c.name}>{c.name}</option>)}
       </select>
       {course.isLoops && (
         <div style={{ marginBottom: 8 }}>
-          <p style={{ fontSize: 12, color: C.sub, margin: "0 0 6px" }}>Ce club a {loopNames.length} boucles de 9 trous — choisissez l'aller et le retour :</p>
+          <p style={{ fontSize: 12, color: C.sub, margin: "0 0 6px" }}>Club à boucles — choisissez l'aller et le retour :</p>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <label>Aller (trous 1-9)</label>
+              <label style={{ fontSize: 11, color: C.sub }}>Aller</label>
               <select value={front} onChange={e => setFrontLoop(e.target.value)} style={{ ...input(), marginBottom: 0 }}>
                 {loopNames.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <label>Retour (trous 10-18)</label>
+              <label style={{ fontSize: 11, color: C.sub }}>Retour</label>
               <select value={back} onChange={e => setBackLoop(e.target.value)} style={{ ...input(), marginBottom: 0 }}>
                 {loopNames.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
@@ -537,72 +579,106 @@ function Setup({ onStart, onCancel, savedCourses, roster, onSaveRoster }) {
           {(() => {
             const combos = course.combos || {};
             const homologated = combos[front + "+" + back] || combos[back + "+" + front];
-            return !homologated ? <p style={{ fontSize: 11, color: C.gold, marginTop: 6 }}>⚠ Combinaison non homologuée ({front}+{back}) : pas de Slope/SSS officiels, l'index brut sera utilisé.</p> : null;
+            return !homologated ? <p style={{ fontSize: 11, color: C.rust, marginTop: 6 }}>⚠ Combinaison non homologuée : index brut utilisé.</p> : null;
           })()}
         </div>
       )}
-      <p style={{ fontSize: 12, color: C.sub, marginTop: -4 }}>Par total : {effCourse.holes.reduce((s, h) => s + h.par, 0)} · {effCourse.holes.length} trous.</p>
+      <p style={{ fontSize: 12, color: C.sub, marginTop: 6 }}>Par {effCourse.holes.reduce((s, h) => s + h.par, 0)} · {effCourse.holes.length} trous</p>
 
-      <h3 style={h3()}>Handicap allowance (%)</h3>
-      <input type="number" value={allowance} onChange={e => setAllowance(e.target.value)} style={input()} placeholder="100" />
-      <p style={{ fontSize: 11, color: C.sub, marginTop: -4 }}>Ex : 95 % stroke play individuel, 85 % en 4BBB… 100 par défaut.</p>
-
-      <h3 style={h3()}>Joueurs (index)</h3>
-      {players.map((p, i) => {
-        const sex = p.sex || "M";
-        const hasData = teeHasData(p.tee, sex);
-        const idxHcp = parseFloat(p.hcp) || 0;
-        const alwPct = parseFloat(allowance) || 100;
-        let preview = null;
-        if (hasData) preview = playingHandicap(idxHcp, effCourse, p.tee, sex, alwPct);
-        else if (p.mSlope && p.mSss) {
-          const fake = { par: effCourse.par || effCourse.holes.reduce((s, h) => s + h.par, 0), tees: { [p.tee]: { [sex]: { slope: parseFloat(p.mSlope), sss: parseFloat(p.mSss) } } } };
-          preview = playingHandicap(idxHcp, fake, p.tee, sex, alwPct);
-        }
-        return (
-        <div key={i} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, marginBottom: 8 }}>
-          {roster && roster.length > 0 && (
-            <select value="" onChange={e => pickFromRoster(i, e.target.value)} style={{ ...input(), marginBottom: 8, padding: "9px 8px", fontSize: 13 }}>
-              <option value="">— Charger un joueur enregistré —</option>
-              {roster.map(rp => <option key={rp.name} value={rp.name}>{rp.name} (idx {rp.hcp})</option>)}
-            </select>
-          )}
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input value={p.name} onChange={e => update(i, "name", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 2 }} placeholder="Nom" />
-            <input type="number" step="0.1" value={p.hcp} onChange={e => update(i, "hcp", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1 }} placeholder="Index" />
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-            <select value={p.tee} onChange={e => update(i, "tee", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1.4, padding: "11px 6px" }}>
-              {TEES.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
-            </select>
-            <select value={sex} onChange={e => update(i, "sex", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1, padding: "11px 6px" }}>
-              <option value="M">Messieurs</option>
-              <option value="D">Dames</option>
-            </select>
-          </div>
-          {!hasData && (
-            <div style={{ marginTop: 8, background: "#fdf3d0", border: `1px solid ${C.gold}`, borderRadius: 8, padding: 8 }}>
-              <div style={{ fontSize: 11, color: "#8a6d00", marginBottom: 6 }}>⚠ Pas de Slope/SSS {sex === "D" ? "Dames" : "Messieurs"} pour le départ {p.tee} sur ce parcours. Saisissez-les pour un calcul WHS exact, sinon l'index brut sera utilisé.</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input type="number" value={p.mSlope} onChange={e => update(i, "mSlope", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1, fontSize: 13 }} placeholder="Slope" />
-                <input type="number" step="0.1" value={p.mSss} onChange={e => update(i, "mSss", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1, fontSize: 13 }} placeholder="SSS" />
-              </div>
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 12, marginTop: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>Hcp de jeu : {preview != null ? preview : "—"}</span>
-            <button onClick={() => saveToRoster(i)} style={{ background: "none", border: "none", color: C.greenLight, fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, marginLeft: "auto" }}>💾 Enregistrer</button>
-            {players.length > 1 && <button onClick={() => remove(i)} style={{ background: "none", border: "none", color: "#b23", fontSize: 12, cursor: "pointer", padding: 0 }}>Retirer</button>}
-          </div>
-        </div>
-      ); })}
-      <p style={{ fontSize: 11, color: C.sub, marginTop: -4 }}>Départ + sexe déterminent le Slope/SSS utilisés pour le calcul WHS du handicap de jeu.</p>
-      <button onClick={addPlayer} style={btn("#fff", C.green, true)}>+ Ajouter un joueur</button>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-        <button onClick={onCancel} style={{ ...btn("#eee", C.text), flex: 1 }}>Annuler</button>
-        <button onClick={start} style={{ ...btn(C.green), flex: 2 }}>Démarrer</button>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: 1, margin: "18px 0 8px" }}>Formules</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {formatPills.map(([f, label]) => {
+          const on = formats.includes(f);
+          return (
+            <button key={f} onClick={() => toggleFormat(f)} style={{
+              padding: "9px 15px", borderRadius: 22, cursor: "pointer", fontSize: 14, fontWeight: on ? 700 : 500,
+              border: on ? "none" : `1px solid ${C.border}`, background: on ? C.green : "#fff", color: on ? "#fff" : C.text }}>
+              {label}
+            </button>
+          );
+        })}
       </div>
+      {(formats.includes("chouette_net") || formats.includes("chouette_brut")) && <p style={{ fontSize: 11, color: C.rust, marginTop: 8 }}>Chouette : exactement 3 joueurs.</p>}
+      {formats.includes("matchplay") && <p style={{ fontSize: 11, color: C.rust, marginTop: 8 }}>Match Play : exactement 2 joueurs.</p>}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "18px 0 8px" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: 1 }}>Joueurs</span>
+        <span style={{ fontSize: 12, color: C.sub }}>Allowance
+          <input type="number" value={allowance} onChange={e => setAllowance(e.target.value)} style={{ width: 52, marginLeft: 6, padding: "4px 6px", border: `1px solid ${C.border}`, borderRadius: 8, textAlign: "center", fontSize: 13 }} />%
+        </span>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+        {players.map((p, i) => {
+          const sex = p.sex || "M";
+          const hasData = teeHasData(p.tee, sex);
+          const idxHcp = parseFloat(p.hcp) || 0;
+          const alwPct = parseFloat(allowance) || 100;
+          let preview = null;
+          if (hasData) preview = playingHandicap(idxHcp, effCourse, p.tee, sex, alwPct);
+          else if (p.mSlope && p.mSss) {
+            const fake = { par: effCourse.par || effCourse.holes.reduce((s, h) => s + h.par, 0), tees: { [p.tee]: { [sex]: { slope: parseFloat(p.mSlope), sss: parseFloat(p.mSss) } } } };
+            preview = playingHandicap(idxHcp, fake, p.tee, sex, alwPct);
+          }
+          const openRow = expandedRow === i;
+          return (
+            <div key={i} style={{ borderBottom: i < players.length - 1 ? `1px solid ${C.line}` : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
+                <Avatar name={p.name} i={i} size={38} />
+                <input value={p.name} onChange={e => update(i, "name", e.target.value)} placeholder={"Joueur " + (i + 1)}
+                  style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 15, fontWeight: 700, background: "transparent", color: C.ink }} />
+                <span style={{ fontSize: 12, color: C.rust, fontWeight: 700, whiteSpace: "nowrap" }}>Jeu {preview != null ? preview : "—"}</span>
+                <button onClick={() => setExpandedRow(openRow ? -1 : i)} style={{ background: "none", border: "none", color: C.sub, fontSize: 16, cursor: "pointer" }}>{openRow ? "▾" : "⋯"}</button>
+              </div>
+              {openRow && (
+                <div style={{ padding: "0 14px 14px" }}>
+                  {roster && roster.length > 0 && (
+                    <select value="" onChange={e => pickFromRoster(i, e.target.value)} style={{ ...input(), marginBottom: 8, padding: "9px 8px", fontSize: 13 }}>
+                      <option value="">— Charger un joueur enregistré —</option>
+                      {roster.map(rp => <option key={rp.name} value={rp.name}>{rp.name} (idx {rp.hcp})</option>)}
+                    </select>
+                  )}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: C.sub }}>Index</label>
+                      <input type="number" step="0.1" value={p.hcp} onChange={e => update(i, "hcp", e.target.value)} style={{ ...input(), marginBottom: 0 }} placeholder="Index" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: C.sub }}>Départ</label>
+                      <select value={p.tee} onChange={e => update(i, "tee", e.target.value)} style={{ ...input(), marginBottom: 0, padding: "12px 6px" }}>
+                        {TEES.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: C.sub }}>Sexe</label>
+                      <select value={sex} onChange={e => update(i, "sex", e.target.value)} style={{ ...input(), marginBottom: 0, padding: "12px 6px" }}>
+                        <option value="M">M</option>
+                        <option value="D">D</option>
+                      </select>
+                    </div>
+                  </div>
+                  {!hasData && (
+                    <div style={{ marginTop: 8, background: "#faf0e0", border: `1px solid ${C.rust}`, borderRadius: 10, padding: 8 }}>
+                      <div style={{ fontSize: 11, color: C.rust, marginBottom: 6 }}>Pas de Slope/SSS {sex === "D" ? "Dames" : "Messieurs"} pour {p.tee}. Saisissez-les, sinon index brut.</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input type="number" value={p.mSlope} onChange={e => update(i, "mSlope", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1, fontSize: 13 }} placeholder="Slope" />
+                        <input type="number" step="0.1" value={p.mSss} onChange={e => update(i, "mSss", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1, fontSize: 13 }} placeholder="SSS" />
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 12, marginTop: 10, alignItems: "center" }}>
+                    <button onClick={() => saveToRoster(i)} style={{ background: "none", border: "none", color: C.green, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0 }}>Enregistrer ce joueur</button>
+                    {players.length > 1 && <button onClick={() => { remove(i); setExpandedRow(-1); }} style={{ background: "none", border: "none", color: C.rust, fontSize: 13, cursor: "pointer", padding: 0, marginLeft: "auto" }}>Retirer</button>}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <button onClick={addPlayer} style={{ width: "100%", padding: "14px", border: "none", background: "none", color: C.green, fontSize: 14, fontWeight: 700, cursor: "pointer", borderTop: `1px solid ${C.line}` }}>+ Ajouter un joueur</button>
+      </div>
+
+      <button onClick={start} style={{ width: "100%", padding: 16, marginTop: 18, borderRadius: 18, border: "none", background: C.green, color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer" }}>Tee off</button>
     </div>
   );
 }
@@ -636,20 +712,45 @@ function Play({ round, onUpdate, onFinish, onBack }) {
     setScore(pi, Math.max(1, cur + delta));
   }
 
-  return (
-    <div style={{ paddingBottom: 72 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={onBack} style={{ ...btn("#eee", C.text), width: "auto", padding: "8px 14px", margin: 0 }}>‹ Accueil</button>
-        <div style={{ fontSize: 12, color: C.sub, textAlign: "right", maxWidth: 200 }}>{formats.map(fmtLabel).join(" · ")}</div>
-      </div>
+  // Total cumulé (brut) et écart au par joué pour chaque joueur, jusqu'au trou courant inclus
+  function runningTotals(pi) {
+    const p = round.players[pi];
+    let strokes = 0, parPlayed = 0, holesDone = 0;
+    round.holes.forEach((hh, i) => {
+      const s = p.scores[i];
+      if (s === "" || s == null) return;
+      strokes += s; parPlayed += hh.par; holesDone++;
+    });
+    const diff = strokes - parPlayed;
+    return { strokes, diff, holesDone };
+  }
+  const diffLabel = (d) => d === 0 ? "E" : d > 0 ? "+" + d : String(d);
 
-      <div style={{ textAlign: "center", margin: "16px 0" }}>
-        <div style={{ fontSize: 13, color: C.sub }}>Trou</div>
-        <div style={{ fontSize: 40, fontWeight: 800, color: C.green, lineHeight: 1 }}>{hole + 1}</div>
-        <div style={{ fontSize: 14, color: C.sub }}>Par {h.par} · HCP {h.si}</div>
-        <div>
-          <button onClick={() => setHole(Math.max(0, hole - 1))} disabled={hole === 0} style={navBtn(hole === 0)}>‹</button>
-          <button onClick={() => setHole(Math.min(nbHoles - 1, hole + 1))} disabled={hole === nbHoles - 1} style={navBtn(hole === nbHoles - 1)}>›</button>
+  return (
+    <div style={{ paddingBottom: 96 }}>
+      {/* Bannière verte du trou */}
+      <div style={{ background: C.green, color: "#fff", borderRadius: 20, padding: "16px 18px 18px", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <button onClick={onBack} style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(255,255,255,.18)", color: "#fff", fontSize: 16, cursor: "pointer" }}>‹</button>
+          <div style={{ fontSize: 12, opacity: .9, textAlign: "center", flex: 1, padding: "0 8px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{round.courseName} · {formats.map(fmtLabel).join(" · ")}</div>
+          <button onClick={() => onFinish(round)} style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(255,255,255,.18)", color: "#fff", fontSize: 15, cursor: "pointer" }}>☰</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 12, opacity: .85, letterSpacing: 1, textTransform: "uppercase" }}>Trou</div>
+            <div style={{ fontFamily: SERIF, fontSize: 56, fontWeight: 700, lineHeight: .9 }}>{hole + 1}</div>
+          </div>
+          <div style={{ textAlign: "right", paddingBottom: 6 }}>
+            <div style={{ fontSize: 13, opacity: .85 }}>Par <b style={{ fontSize: 18 }}>{h.par}</b></div>
+            <div style={{ fontSize: 13, opacity: .85 }}>HCP {h.si}</div>
+          </div>
+        </div>
+        {/* Barre de progression segmentée */}
+        <div style={{ display: "flex", gap: 3, marginTop: 14 }}>
+          {round.holes.map((hh, i) => (
+            <div key={i} onClick={() => setHole(i)} style={{ flex: 1, height: 5, borderRadius: 3, cursor: "pointer",
+              background: i === hole ? "#fff" : (round.players.every(pl => pl.scores[i] !== "" && pl.scores[i] != null) ? "rgba(255,255,255,.7)" : "rgba(255,255,255,.25)") }} />
+          ))}
         </div>
       </div>
 
@@ -667,51 +768,41 @@ function Play({ round, onUpdate, onFinish, onBack }) {
         const pts = liveStableford
           ? stablefordPoints(val, h.par, liveStableford === "stableford" ? rec : 0)
           : chouetteLive ? chouetteLive[pi] : null;
+        const rt = runningTotals(pi);
         return (
-          <div key={p.id} style={{ ...card(), flexDirection: "column", alignItems: "stretch" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>{p.name}</span>
-                <TeePill tee={p.tee} />
-                {hasNet && <span style={{ fontSize: 11, color: C.sub }}> · {rec} coup{rec > 1 ? "s" : ""} rendu{rec > 1 ? "s" : ""}</span>}
+          <div key={p.id} style={{ background: "#fff", borderRadius: 16, padding: 12, marginBottom: 10, boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Avatar name={p.name} i={pi} size={38} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ fontSize: 11, color: C.sub }}>
+                  Total {rt.holesDone ? diffLabel(rt.diff) : "E"} · {rt.strokes || 0}
+                  {hasNet && rec > 0 && <span> · {rec} rendu{rec > 1 ? "s" : ""}</span>}
+                </div>
               </div>
-              {val != null && val !== "" ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <ScoreMark value={val} par={h.par} size={30} />
-                {pts != null && <span style={{ background: C.gold, color: "#fff", borderRadius: 8, padding: "2px 8px", fontWeight: 700, fontSize: 13 }}>{pts} pt</span>}
-              </div> : null}
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button onClick={() => quick(pi, -1)} style={stepBtn()}>−</button>
-              <input type="number" inputMode="numeric" value={val} onChange={e => setScore(pi, e.target.value)} placeholder={String(h.par)} style={{ ...input(), marginBottom: 0, textAlign: "center", fontSize: 22, fontWeight: 700, flex: 1 }} />
+              <input type="number" inputMode="numeric" value={val} onChange={e => setScore(pi, e.target.value)} placeholder={String(h.par)}
+                style={{ width: 46, height: 46, textAlign: "center", fontSize: 20, fontWeight: 700, border: `1px solid ${C.border}`, borderRadius: 12, background: C.cream, color: C.text, boxSizing: "border-box" }} />
               <button onClick={() => quick(pi, 1)} style={stepBtn()}>+</button>
             </div>
+            {val != null && val !== "" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.line}` }}>
+                <ScoreMark value={val} par={h.par} size={28} />
+                <span style={{ fontSize: 12, color: C.sub }}>sur ce trou (par {h.par})</span>
+                {pts != null && <span style={{ marginLeft: "auto", background: C.greenLight, color: C.green, borderRadius: 20, padding: "3px 10px", fontWeight: 700, fontSize: 13 }}>{pts} pt</span>}
+              </div>
+            )}
           </div>
         );
       });
       })()}
 
-      <button onClick={() => onFinish(round)} style={{ ...btn(C.gold), marginTop: 16, marginBottom: 8 }}>Voir le classement</button>
-
-      {/* Barre de sélection des trous */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: `1px solid ${C.border}`, boxShadow: "0 -2px 8px rgba(0,0,0,.08)", zIndex: 20 }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", overflowX: "auto", gap: 4, padding: "8px 8px calc(8px + env(safe-area-inset-bottom))" }}>
-          {round.holes.map((hh, i) => {
-            const allScored = round.players.every(pl => pl.scores[i] !== "" && pl.scores[i] != null);
-            const isCur = i === hole;
-            return (
-              <button key={i} onClick={() => setHole(i)} style={{
-                flex: "0 0 auto", width: 34, height: 40, borderRadius: 8, cursor: "pointer",
-                border: isCur ? `2px solid ${C.green}` : `1px solid ${C.border}`,
-                background: isCur ? C.green : allScored ? "#d8f0dd" : "#fff",
-                color: isCur ? "#fff" : C.text, fontWeight: isCur ? 800 : 600, fontSize: 13,
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1,
-              }}>
-                <span>{i + 1}</span>
-                <span style={{ fontSize: 8, opacity: .7 }}>P{hh.par}</span>
-              </button>
-            );
-          })}
-        </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+        <button onClick={() => setHole(Math.max(0, hole - 1))} disabled={hole === 0}
+          style={{ flex: 1, padding: 14, borderRadius: 16, border: `1px solid ${C.border}`, background: hole === 0 ? "#f0f0ee" : "#fff", color: hole === 0 ? "#bbb" : C.text, fontSize: 15, fontWeight: 700, cursor: hole === 0 ? "default" : "pointer" }}>← Trou {hole}</button>
+        {hole < nbHoles - 1
+          ? <button onClick={() => setHole(hole + 1)} style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.green, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Suivant · Trou {hole + 2} →</button>
+          : <button onClick={() => onFinish(round)} style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.green, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Voir le classement →</button>}
       </div>
     </div>
   );
@@ -729,46 +820,50 @@ function Results({ round, onBack, onEdit, backupNeeded, onBackupDone }) {
 
   return (
     <div>
-      <button onClick={onBack} style={{ ...btn("#eee", C.text), width: "auto", padding: "8px 14px", margin: 0 }}>‹ Accueil</button>
-      <h3 style={h3()}>Résultats</h3>
-      <div style={{ fontSize: 12, color: C.sub, marginBottom: 10 }}>{round.courseName} · {new Date(round.createdAt).toLocaleDateString("fr-FR")}</div>
-      {backupNeeded && <BackupBanner onCopied={onBackupDone} />}
+      <ScreenHeader title="Classement" onBack={onBack} />
+      <div style={{ fontSize: 13, color: C.sub, margin: "-8px 0 14px" }}>{round.courseName} · {new Date(round.createdAt).toLocaleDateString("fr-FR")}</div>
+      {backupNeeded && <div style={{ marginBottom: 14 }}><BackupBanner onCopied={onBackupDone} /></div>}
 
       {formats.map((format) => {
         const { header, sorted, metric, detail, isChouette } = computeFormat(round, format);
         const isPoints = isChouette || format.startsWith("stableford");
         const open = openFmt === format;
         const winner = sorted[0];
+        // valeur "principale" affichée à droite de chaque joueur
+        const mainVal = (r) => metric(r);
+        // écart au par (brut) pour la ligne secondaire
+        const parTotal = round.holes.reduce((s, h) => s + h.par, 0);
         return (
-          <div key={format} style={{ marginBottom: 10, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-            <button onClick={() => toggle(format)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", background: open ? C.green : "#fff", color: open ? "#fff" : C.text, border: "none", cursor: "pointer", textAlign: "left" }}>
-              <span style={{ fontSize: 16 }}>🏆</span>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{fmtLabel(format)}</span>
-              {!open && winner && <span style={{ fontSize: 12, color: C.sub, marginLeft: 2 }}>· 🥇 {winner.name} ({metric(winner)})</span>}
-              <span style={{ marginLeft: "auto", fontSize: 14, transform: open ? "rotate(90deg)" : "none", transition: "transform .15s" }}>›</span>
+          <div key={format} style={{ marginBottom: 12, background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+            <button onClick={() => toggle(format)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "14px 16px", background: "none", color: C.text, border: "none", cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 18 }}>{fmtLabel(format)}</span>
+              {!open && winner && <span style={{ fontSize: 12, color: C.rust, fontWeight: 700, marginLeft: 2 }}>{winner.name} · {mainVal(winner)}</span>}
+              <span style={{ marginLeft: "auto", fontSize: 16, color: C.sub, transform: open ? "rotate(90deg)" : "none" }}>›</span>
             </button>
             {open && (
-              <div style={{ padding: "10px 12px 14px" }}>
-                {format === "matchplay" && round.players.length === 2 && <MatchPlay round={round} />}
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                  <thead>
-                    <tr style={{ background: C.green, color: "#fff" }}>
-                      <th style={th()}>#</th><th style={{ ...th(), textAlign: "left" }}>Joueur</th>
-                      <th style={th()}>Brut</th><th style={th()}>Net</th><th style={th()}>{header}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sorted.map((r, i) => (
-                      <tr key={r.id} style={{ background: i % 2 ? "#fff" : "#eef3ec" }}>
-                        <td style={td()}>{i === 0 ? "🥇" : i + 1}</td>
-                        <td style={{ ...td(), textAlign: "left" }}>{r.name} <TeePill tee={r.tee} /><div style={{ fontSize: 10, color: C.sub }}>idx {r.hcp} · {r.sex === "D" ? "D" : "M"} · jeu {r.playing}</div></td>
-                        <td style={td()}>{r.gross || "–"}</td>
-                        <td style={td()}>{r.net || "–"}</td>
-                        <td style={{ ...td(), fontWeight: 700, color: C.green }}>{metric(r)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ padding: "0 12px 14px" }}>
+                {format === "matchplay" && round.players.length === 2 && <div style={{ marginBottom: 10 }}><MatchPlay round={round} /></div>}
+                {sorted.map((r, i) => {
+                  const first = i === 0;
+                  const diff = r.gross ? r.gross - (r.played === round.holes.length ? parTotal : round.holes.slice(0, r.played).reduce((s, h) => s + h.par, 0)) : 0;
+                  const diffTxt = diff === 0 ? "E" : diff > 0 ? "+" + diff : String(diff);
+                  const pi = round.players.findIndex(x => x.id === r.id);
+                  return (
+                    <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 14, marginBottom: 8,
+                      background: first ? C.green : "#eef0ec", color: first ? "#fff" : C.ink, border: first ? "none" : `1px solid ${C.border}` }}>
+                      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 20, width: 22, textAlign: "center", color: first ? "#fff" : C.sub }}>{i + 1}</span>
+                      <Avatar name={r.name} i={pi < 0 ? i : pi} size={36} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: first ? "#fff" : C.ink }}>{r.name}</div>
+                        <div style={{ fontSize: 11, color: first ? "rgba(255,255,255,.9)" : C.sub }}>idx {r.hcp} · jeu {r.playing} · brut {r.gross || "–"}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 700, fontSize: 17, color: first ? "#fff" : C.ink }}>{mainVal(r)}</div>
+                        <div style={{ fontSize: 11, color: first ? "rgba(255,255,255,.9)" : C.sub }}>{diffTxt}</div>
+                      </div>
+                    </div>
+                  );
+                })}
                 <DetailGrid round={round} detail={detail} label={isPoints ? "Points par trou" : "Score par trou"} />
               </div>
             )}
@@ -776,20 +871,27 @@ function Results({ round, onBack, onEdit, backupNeeded, onBackupDone }) {
         );
       })}
 
-      <div style={{ fontWeight: 700, color: C.green, fontSize: 15, margin: "20px 0 8px", display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>📋</span> Coups rendus par trou
+      <h3 style={h3()}>Carte de score</h3>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+        <ScoreGrid round={round} brutFormat={gridBrut} />
+        <div style={{ display: "flex", gap: 14, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.line}` }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.sub }}><span style={{ width: 14, height: 14, borderRadius: "50%", background: C.rust, display: "inline-block" }}></span> sous le par</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.sub }}><span style={{ width: 14, height: 14, borderRadius: 3, background: C.ink, display: "inline-block" }}></span> au-dessus du par</span>
+        </div>
       </div>
-      <RecapRendus round={round} />
 
-      <p style={{ fontSize: 11, color: C.sub, marginTop: 12 }}>
+      <h3 style={h3()}>Coups rendus par trou</h3>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+        <RecapRendus round={round} />
+      </div>
+      <p style={{ fontSize: 11, color: C.sub, marginTop: 10 }}>
         {played0 < nbHoles ? `⚠ Partie en cours (${played0}/${nbHoles} trous saisis pour le 1er joueur).` : "Tous les trous saisis."}
       </p>
 
-      <div style={{ fontWeight: 700, color: C.green, fontSize: 15, margin: "16px 0 4px", display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>🗒</span> Carte de score
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <button onClick={onEdit} style={{ flex: 1, padding: 15, borderRadius: 16, border: `1px solid ${C.border}`, background: "#fff", color: C.text, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Corriger les scores</button>
+        <button onClick={onBack} style={{ flex: 1, padding: 15, borderRadius: 16, border: "none", background: C.green, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Terminer</button>
       </div>
-      <ScoreGrid round={round} brutFormat={gridBrut} />
-      <button onClick={onEdit} style={{ ...btn(C.green), marginTop: 16 }}>Reprendre / corriger les scores</button>
     </div>
   );
 }
@@ -936,6 +1038,15 @@ function RecapRendus({ round }) {
 
 function ScoreGrid({ round, brutFormat }) {
   const nb = round.holes.length;
+  // Cellule façon Card & Pencil : carré noir (au-dessus par), rond orange (sous par), simple sinon
+  const cell = (s, par) => {
+    if (s === "" || s == null) return <span style={{ color: C.sub }}>·</span>;
+    const d = s - par;
+    if (d === 0) return <span style={{ fontWeight: 500 }}>{s}</span>;
+    const bg = d < 0 ? C.rust : C.ink;
+    const shape = d < 0 ? "50%" : 5;
+    return <span style={{ display: "inline-flex", width: 22, height: 22, alignItems: "center", justifyContent: "center", background: bg, color: "#fff", borderRadius: shape, fontSize: 12, fontWeight: 700 }}>{s}</span>;
+  };
   const Section = ({ holes, offset, title }) => holes.length ? (
     <div style={{ overflowX: "auto", marginTop: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: C.sub, marginBottom: 4 }}>{title}</div>
@@ -951,7 +1062,7 @@ function ScoreGrid({ round, brutFormat }) {
               {holes.map((h, i) => {
                 const idx = offset + i, s = p.scores[idx];
                 const rec = brutFormat ? 0 : strokesOnHole(p.playing, h.si, nb);
-                return <td key={i} style={{ ...gtd(), position: "relative" }}><ScoreMark value={(s === "" || s == null) ? null : s} par={h.par} size={28} />{rec > 0 && <sup style={{ color: C.gold, position: "absolute", top: 2, right: 3 }}>{rec}</sup>}</td>;
+                return <td key={i} style={{ ...gtd(), position: "relative", padding: "4px 5px" }}>{cell(s, h.par)}{rec > 0 && <sup style={{ color: C.rust, position: "absolute", top: 1, right: 2, fontSize: 8 }}>{rec}</sup>}</td>;
               })}
               <td style={gtd(true)}>{holes.reduce((sum, h, i) => { const s = p.scores[offset + i]; return sum + (s === "" || s == null ? 0 : s); }, 0) || "–"}</td>
             </tr>
@@ -970,7 +1081,9 @@ function Courses({ courses, onSave, onBack }) {
 
   function updateHole(i, k, v) {
     const nl = [...list];
-    nl[sel] = { ...nl[sel], holes: nl[sel].holes.map((h, j) => j === i ? { ...h, [k]: parseInt(v, 10) || 0 } : h) };
+    let val = "";
+    if (v !== "") { const n = parseInt(v, 10); val = isNaN(n) ? "" : n; }
+    nl[sel] = { ...nl[sel], holes: nl[sel].holes.map((h, j) => j === i ? { ...h, [k]: val } : h) };
     setList(nl);
   }
   function updateName(v) { const nl = [...list]; nl[sel] = { ...nl[sel], name: v }; setList(nl); }
@@ -986,62 +1099,70 @@ function Courses({ courses, onSave, onBack }) {
     nl[sel] = { ...cur, tees };
     setList(nl);
   }
-  function addCourse() { const nl = [...list, { ...defaultCourse(), name: "Parcours " + (list.length + 1) }]; setList(nl); setSel(nl.length - 1); }
+  function addCourse() {
+    const blank = { name: "Parcours " + (list.length + 1), par: 72,
+      holes: Array.from({ length: 18 }, () => ({ par: "", si: "" })),
+      tees: { Noir: { M: null, D: null }, Blanc: { M: null, D: null }, Jaune: { M: null, D: null }, Bleu: { M: null, D: null }, Rouge: { M: null, D: null } } };
+    const nl = [...list, blank]; setList(nl); setSel(nl.length - 1);
+  }
   function removeCourse() { if (list.length <= 1) return; const nl = list.filter((_, i) => i !== sel); setList(nl); setSel(0); }
   const tv = (tee, sex, field) => { const t = c.tees && c.tees[tee] ? c.tees[tee][sex] : null; return t && t[field] != null ? t[field] : ""; };
 
   return (
     <div>
-      <button onClick={onBack} style={{ ...btn("#eee", C.text), width: "auto", padding: "8px 14px", margin: 0 }}>‹ Accueil</button>
-      <h3 style={h3()}>Mes parcours</h3>
+      <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 700, margin: "4px 0 16px" }}>Parcours</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Sélection</div>
       <select value={sel} onChange={e => setSel(parseInt(e.target.value))} style={input()}>
         {list.map((x, i) => <option key={i} value={i}>{x.name}</option>)}
       </select>
       <input value={c.name} onChange={e => updateName(e.target.value)} style={input()} placeholder="Nom du parcours" />
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={addCourse} style={{ ...btn("#fff", C.green, true), flex: 1 }}>+ Parcours</button>
-        {list.length > 1 && <button onClick={removeCourse} style={{ ...btn("#fff", "#b23", true), flex: 1 }}>Supprimer</button>}
+        <button onClick={addCourse} style={{ flex: 1, padding: 13, borderRadius: 14, border: `1px solid ${C.border}`, background: "#fff", color: C.green, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>+ Parcours</button>
+        {list.length > 1 && <button onClick={removeCourse} style={{ flex: 1, padding: 13, borderRadius: 14, border: `1px solid ${C.rust}`, background: "#fff", color: C.rust, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Supprimer</button>}
       </div>
-      <div style={{ overflowX: "auto", marginTop: 10 }}>
+
+      <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, margin: "20px 0 10px" }}>Trous</div>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto" }}>
         <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%" }}>
-          <thead><tr style={{ background: C.green, color: "#fff" }}><th style={th()}>Trou</th><th style={th()}>Par</th><th style={th()}>HCP (index diff.)</th></tr></thead>
+          <thead><tr><th style={gth()}>Trou</th><th style={gth()}>Par</th><th style={gth()}>HCP</th></tr></thead>
           <tbody>
             {c.holes.map((h, i) => (
-              <tr key={i} style={{ background: i % 2 ? "#fff" : "#eef3ec" }}>
-                <td style={td()}>{i + 1}</td>
-                <td style={td()}><input type="number" value={h.par} onChange={e => updateHole(i, "par", e.target.value)} style={cellInput()} /></td>
-                <td style={td()}><input type="number" value={h.si} onChange={e => updateHole(i, "si", e.target.value)} style={cellInput()} /></td>
+              <tr key={i}>
+                <td style={gtd(true)}>{i + 1}</td>
+                <td style={gtd()}><input type="number" value={h.par} onChange={e => updateHole(i, "par", e.target.value)} style={cellInput()} /></td>
+                <td style={gtd()}><input type="number" value={h.si} onChange={e => updateHole(i, "si", e.target.value)} style={cellInput()} /></td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p style={{ fontSize: 11, color: C.sub, marginTop: 8 }}>HCP 1 = trou le plus difficile. Par total : {c.holes.reduce((s, h) => s + (parseInt(h.par, 10) || 0), 0)}.</p>
       </div>
-      <p style={{ fontSize: 11, color: C.sub, marginTop: 6 }}>HCP 1 = trou le plus difficile (reçoit le 1er coup rendu). Total par : {c.holes.reduce((s, h) => s + h.par, 0)}.</p>
 
-      <h3 style={h3()}>Slope / SSS par départ (WHS)</h3>
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 700, margin: "20px 0 10px" }}>Slope / SSS par départ</div>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,.05)", overflowX: "auto" }}>
         <table style={{ borderCollapse: "collapse", fontSize: 11, width: "100%" }}>
           <thead>
-            <tr style={{ background: C.green, color: "#fff" }}>
-              <th style={th()}>Départ</th><th style={th()}>Slope M</th><th style={th()}>SSS M</th><th style={th()}>Slope D</th><th style={th()}>SSS D</th>
-            </tr>
+            <tr><th style={gth()}>Départ</th><th style={gth()}>Slope M</th><th style={gth()}>SSS M</th><th style={gth()}>Slope D</th><th style={gth()}>SSS D</th></tr>
           </thead>
           <tbody>
             {TEES.map((t, i) => (
-              <tr key={t.name} style={{ background: i % 2 ? "#fff" : "#eef3ec" }}>
-                <td style={td()}><TeePill tee={t.name} /></td>
-                <td style={td()}><input type="number" value={tv(t.name, "M", "slope")} onChange={e => updateTee(t.name, "M", "slope", e.target.value)} style={cellInput()} /></td>
-                <td style={td()}><input type="number" step="0.1" value={tv(t.name, "M", "sss")} onChange={e => updateTee(t.name, "M", "sss", e.target.value)} style={cellInput()} /></td>
-                <td style={td()}><input type="number" value={tv(t.name, "D", "slope")} onChange={e => updateTee(t.name, "D", "slope", e.target.value)} style={cellInput()} /></td>
-                <td style={td()}><input type="number" step="0.1" value={tv(t.name, "D", "sss")} onChange={e => updateTee(t.name, "D", "sss", e.target.value)} style={cellInput()} /></td>
+              <tr key={t.name}>
+                <td style={gtd(true)}><TeePill tee={t.name} /></td>
+                <td style={gtd()}><input type="number" value={tv(t.name, "M", "slope")} onChange={e => updateTee(t.name, "M", "slope", e.target.value)} style={cellInput()} /></td>
+                <td style={gtd()}><input type="number" step="0.1" value={tv(t.name, "M", "sss")} onChange={e => updateTee(t.name, "M", "sss", e.target.value)} style={cellInput()} /></td>
+                <td style={gtd()}><input type="number" value={tv(t.name, "D", "slope")} onChange={e => updateTee(t.name, "D", "slope", e.target.value)} style={cellInput()} /></td>
+                <td style={gtd()}><input type="number" step="0.1" value={tv(t.name, "D", "sss")} onChange={e => updateTee(t.name, "D", "sss", e.target.value)} style={cellInput()} /></td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p style={{ fontSize: 11, color: C.sub, marginTop: 8 }}>Laissez vide un départ sans valeur officielle (ex. Noir/Blanc Dames).</p>
       </div>
-      <p style={{ fontSize: 11, color: C.sub, marginTop: 6 }}>Laissez vide un départ sans valeur officielle (ex. Noir/Blanc Dames).</p>
 
-      <button onClick={() => { onSave(list); onBack(); }} style={{ ...btn(C.green), marginTop: 12 }}>Enregistrer</button>
+      <button onClick={() => {
+        const clean = list.map(cc => ({ ...cc, holes: cc.holes.map(h => ({ par: h.par === "" || h.par == null ? 0 : h.par, si: h.si === "" || h.si == null ? 0 : h.si })) }));
+        onSave(clean);
+      }} style={{ width: "100%", padding: 16, marginTop: 18, borderRadius: 18, border: "none", background: C.green, color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>Enregistrer</button>
     </div>
   );
 }
@@ -1059,30 +1180,41 @@ function Players({ roster, onSave, onBack }) {
   }
   return (
     <div>
-      <button onClick={onBack} style={{ ...btn("#eee", C.text), width: "auto", padding: "8px 14px", margin: 0 }}>‹ Accueil</button>
-      <h3 style={h3()}>Mes joueurs</h3>
+      <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 700, margin: "4px 0 16px" }}>Joueurs</div>
       {list.length === 0 && <p style={{ fontSize: 14, color: C.sub }}>Aucun joueur enregistré. Ajoutez-en, ou enregistrez-les depuis une Nouvelle partie.</p>}
-      {list.map((p, i) => (
-        <div key={i} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, marginBottom: 8 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input value={p.name} onChange={e => update(i, "name", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 2 }} placeholder="Nom" />
-            <input type="number" step="0.1" value={p.hcp} onChange={e => update(i, "hcp", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1 }} placeholder="Index" />
-            <button onClick={() => remove(i)} style={{ background: "none", border: "none", color: "#b23", fontSize: 20, cursor: "pointer" }}>×</button>
+      <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}>
+        {list.map((p, i) => (
+          <div key={i} style={{ padding: "12px 14px", borderBottom: i < list.length - 1 ? `1px solid ${C.line}` : "none" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Avatar name={p.name} i={i} size={40} />
+              <input value={p.name} onChange={e => update(i, "name", e.target.value)} placeholder="Nom" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 15, fontWeight: 700, background: "transparent", color: C.ink }} />
+              <button onClick={() => remove(i)} style={{ background: "none", border: "none", color: C.rust, fontSize: 18, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: C.sub }}>Index</label>
+                <input type="number" step="0.1" value={p.hcp} onChange={e => update(i, "hcp", e.target.value)} style={{ ...input(), marginBottom: 0 }} placeholder="Index" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: C.sub }}>Départ</label>
+                <select value={p.tee || "Jaune"} onChange={e => update(i, "tee", e.target.value)} style={{ ...input(), marginBottom: 0, padding: "12px 6px" }}>
+                  {TEES.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: C.sub }}>Sexe</label>
+                <select value={p.sex || "M"} onChange={e => update(i, "sex", e.target.value)} style={{ ...input(), marginBottom: 0, padding: "12px 6px" }}>
+                  <option value="M">M</option>
+                  <option value="D">D</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-            <select value={p.tee || "Jaune"} onChange={e => update(i, "tee", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1.4, padding: "11px 6px" }}>
-              {TEES.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
-            </select>
-            <select value={p.sex || "M"} onChange={e => update(i, "sex", e.target.value)} style={{ ...input(), marginBottom: 0, flex: 1, padding: "11px 6px" }}>
-              <option value="M">Messieurs</option>
-              <option value="D">Dames</option>
-            </select>
-          </div>
-        </div>
-      ))}
-      <button onClick={add} style={btn("#fff", C.green, true)}>+ Ajouter un joueur</button>
-      <p style={{ fontSize: 11, color: C.sub, marginTop: -4 }}>Index, départ et sexe sont repris à chaque partie, mais restent modifiables au cas par cas.</p>
-      <button onClick={save} style={{ ...btn(C.green), marginTop: 8 }}>Enregistrer</button>
+        ))}
+        <button onClick={add} style={{ width: "100%", padding: 14, border: "none", background: "none", color: C.green, fontSize: 14, fontWeight: 700, cursor: "pointer", borderTop: list.length ? `1px solid ${C.line}` : "none" }}>+ Ajouter un joueur</button>
+      </div>
+      <p style={{ fontSize: 11, color: C.sub, margin: "10px 0" }}>Index, départ et sexe sont repris à chaque partie, modifiables au cas par cas.</p>
+      <button onClick={save} style={{ width: "100%", padding: 16, borderRadius: 18, border: "none", background: C.green, color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>Enregistrer</button>
     </div>
   );
 }
@@ -1200,7 +1332,7 @@ function DataScreen({ onReload, onBack }) {
 
   return (
     <div>
-      <button onClick={onBack} style={{ ...btn("#eee", C.text), width: "auto", padding: "8px 14px", margin: 0 }}>‹ Accueil</button>
+      <div style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 700, margin: "4px 0 16px" }}>Réglages</div>
       <h3 style={h3()}>Sauvegarde / Restauration</h3>
       <p style={{ fontSize: 12, color: C.sub }}>Exportez de temps en temps : c'est votre filet de sécurité si les données de l'app venaient à être perdues.</p>
 
@@ -1288,14 +1420,23 @@ function TeePill({ tee }) {
 function fmtLabel(f) {
   return { stableford: "Stableford Net", stableford_brut: "Stableford Brut", strokeplay: "Stroke Play Net", strokeplay_brut: "Stroke Play Brut", matchplay: "Match Play", scramble: "Scramble", chouette: "Chouette Brut", chouette_brut: "Chouette Brut", chouette_net: "Chouette Net" }[f] || f;
 }
-const btn = (bg, color = "#fff", outline = false) => ({ display: "block", width: "100%", padding: "14px", background: bg, color, border: outline ? `1.5px solid ${color}` : "none", borderRadius: 14, fontSize: 15, fontWeight: 600, marginBottom: 10, cursor: "pointer", boxShadow: outline ? "none" : "0 1px 2px rgba(0,0,0,.08)" });
-const h3 = () => ({ fontSize: 12, fontWeight: 700, color: C.sub, margin: "20px 0 8px", textTransform: "uppercase", letterSpacing: 1 });
-const card = () => ({ display: "flex", alignItems: "center", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, marginBottom: 10, gap: 8 });
-const input = () => ({ width: "100%", boxSizing: "border-box", padding: "12px 12px", border: `1px solid ${C.border}`, borderRadius: 12, fontSize: 15, marginBottom: 10, background: "#fff", color: C.text });
-const stepBtn = () => ({ width: 52, height: 52, borderRadius: 14, border: "none", background: C.green, color: "#fff", fontSize: 26, fontWeight: 700, cursor: "pointer", flexShrink: 0 });
+const btn = (bg, color = "#fff", outline = false) => ({ display: "block", width: "100%", padding: "15px", background: bg, color, border: outline ? `1.5px solid ${C.border}` : "none", borderRadius: 16, fontSize: 15, fontWeight: 700, marginBottom: 10, cursor: "pointer", boxShadow: outline ? "none" : "0 1px 3px rgba(0,0,0,.06)" });
+const h3 = () => ({ fontFamily: SERIF, fontSize: 20, fontWeight: 700, color: C.ink, margin: "20px 0 10px" });
+const card = () => ({ display: "flex", alignItems: "center", background: "#fff", border: "none", borderRadius: 16, padding: 14, marginBottom: 10, gap: 8, boxShadow: "0 1px 3px rgba(0,0,0,.05)" });
+const input = () => ({ width: "100%", boxSizing: "border-box", padding: "13px 14px", border: `1px solid ${C.border}`, borderRadius: 14, fontSize: 15, marginBottom: 10, background: "#fff", color: C.text });
+const stepBtn = () => ({ width: 46, height: 46, borderRadius: "50%", border: "none", background: C.green, color: "#fff", fontSize: 24, fontWeight: 700, cursor: "pointer", flexShrink: 0 });
 const navBtn = (d) => ({ width: 44, height: 40, margin: "8px 6px 0", borderRadius: 10, border: "none", background: d ? "#e6e6e6" : C.green, color: d ? "#aaa" : "#fff", fontSize: 22, cursor: d ? "default" : "pointer" });
 const th = () => ({ padding: "8px 6px", fontSize: 12, textAlign: "center", fontWeight: 600 });
 const td = () => ({ padding: "8px 6px", textAlign: "center", borderBottom: `1px solid ${C.line}` });
 const gth = () => ({ padding: "6px 6px", background: "transparent", color: C.sub, fontSize: 11, textAlign: "center", borderBottom: `1px solid ${C.line}`, fontWeight: 600 });
 const gtd = (label = false) => ({ padding: "3px 6px", textAlign: "center", fontWeight: label ? 700 : 400, color: label ? C.ink : C.text, background: "transparent", borderBottom: `1px solid ${C.line}`, minWidth: 30 });
 const cellInput = () => ({ width: 50, padding: "6px", border: `1px solid ${C.border}`, borderRadius: 6, textAlign: "center", fontSize: 13 });
+// Titre de sous-écran avec bouton retour rond, façon Card & Pencil
+function ScreenHeader({ title, onBack }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      {onBack && <button onClick={onBack} style={{ width: 40, height: 40, borderRadius: "50%", border: "none", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.08)", cursor: "pointer", fontSize: 18 }}>‹</button>}
+      <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700 }}>{title}</div>
+    </div>
+  );
+}
